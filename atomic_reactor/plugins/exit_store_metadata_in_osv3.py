@@ -18,7 +18,8 @@ from atomic_reactor.plugins.pre_add_help import AddHelpPlugin
 from atomic_reactor.plugins.post_pulp_pull import PulpPullPlugin
 from atomic_reactor.constants import (PLUGIN_KOJI_IMPORT_PLUGIN_KEY,
                                       PLUGIN_KOJI_PROMOTE_PLUGIN_KEY,
-                                      PLUGIN_KOJI_UPLOAD_PLUGIN_KEY)
+                                      PLUGIN_KOJI_UPLOAD_PLUGIN_KEY,
+                                      PLUGIN_ADD_FILESYSTEM_KEY)
 from atomic_reactor.plugin import ExitPlugin
 from atomic_reactor.util import get_build_json
 
@@ -60,6 +61,16 @@ class StoreMetadataInOSv3Plugin(ExitPlugin):
             return {}
 
         return annotations
+
+    def get_filesystem_koji_task_id(self):
+        res = self.get_result(self.workflow.prebuild_results.get(PLUGIN_ADD_FILESYSTEM_KEY, ''))
+        if res:
+            if 'filesystem-koji-task-id' in res:
+                return res['filesystem-koji-task-id']
+            else:
+                return ''
+        else:
+            return ''
 
     def get_digests(self):
         """
@@ -137,6 +148,10 @@ class StoreMetadataInOSv3Plugin(ExitPlugin):
         if koji_build_id:
             labels["koji-build-id"] = str(koji_build_id)
 
+        filesystem_koji_task_id = self.get_filesystem_koji_task_id()
+        if filesystem_koji_task_id:
+            labels["filesystem-koji-task-id"] = filesystem_koji_task_id
+
         updates = self.workflow.build_result.labels
         if updates:
             updates = {key: str(value) for key, value in updates.items()}
@@ -193,7 +208,7 @@ class StoreMetadataInOSv3Plugin(ExitPlugin):
             "base-image-name": self.workflow.builder.base_image.to_str(),
             "image-id": self.workflow.builder.image_id or '',
             "digests": json.dumps(self.get_pullspecs(self.get_digests())),
-            "plugins-metadata": json.dumps(self.get_plugin_metadata())
+            "plugins-metadata": json.dumps(self.get_plugin_metadata()),
         }
 
         help_result = self.workflow.prebuild_results.get(AddHelpPlugin.key)

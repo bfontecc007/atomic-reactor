@@ -20,7 +20,8 @@ import osbs.conf
 from osbs.exceptions import OsbsResponseException
 from atomic_reactor.constants import (PLUGIN_KOJI_IMPORT_PLUGIN_KEY,
                                       PLUGIN_KOJI_PROMOTE_PLUGIN_KEY,
-                                      PLUGIN_KOJI_UPLOAD_PLUGIN_KEY)
+                                      PLUGIN_KOJI_UPLOAD_PLUGIN_KEY,
+                                      PLUGIN_ADD_FILESYSTEM_KEY)
 from atomic_reactor.build import BuildResult
 from atomic_reactor.inner import DockerBuildWorkflow
 from atomic_reactor.plugin import ExitPluginsRunner, PluginFailedException
@@ -274,6 +275,31 @@ CMD blabla"""
         assert 'media-types' not in annotations
     else:
         assert json.loads(annotations['media-types']) == expected_pulp_results
+
+
+def test_koji_filesystem_label():
+    workflow = prepare()
+    workflow.prebuild_results = {PLUGIN_ADD_FILESYSTEM_KEY: {
+        'filesystem-koji-task-id': 'example-fs-taskid',
+        'base-image-id': 'foobar'
+        }
+    }
+    runner = ExitPluginsRunner(
+        None,
+        workflow,
+        [{
+            'name': StoreMetadataInOSv3Plugin.key,
+            "args": {
+                "url": "http://example.com/"
+            }
+        }]
+    )
+    output = runner.run()
+    labels = output[StoreMetadataInOSv3Plugin.key]["labels"]
+
+    assert 'filesystem-koji-task-id' in labels
+    assert labels['filesystem-koji-task-id'] == 'example-fs-taskid'
+
 
 
 def test_metadata_plugin_rpmqa_failure(tmpdir):
